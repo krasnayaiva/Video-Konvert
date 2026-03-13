@@ -29,7 +29,7 @@ except ImportError:
     OPENCV_AVAILABLE = False
 
 # Настройка темы
-ctk.set_appearance_mode("light")
+ctk.set_appearance_mode("dark")
 ctk.set_default_color_theme("blue")
 
 
@@ -46,13 +46,12 @@ class VideoConverterApp(ctk.CTk):
         self.output_path = tk.StringVar()
         self.format_var = tk.StringVar(value="MP4")
         self.quality_var = tk.StringVar(value="high")
-        self.create_mpv_playlist = tk.BooleanVar(value=False)
         self.progress_var = tk.DoubleVar(value=0)
 
         self.format_extensions = {
             "MP4": "mp4", "AVI": "avi", "MOV": "mov",
-            "MKV": "mkv", "WebM": "webm", "Разбить на кадры": "gif",
-            "MPV плейлист": "mpv", "3GP": "3gp", "FLV": "flv"
+            "MKV": "mkv", "WebM": "webm", "GIF": "gif",
+            "3GP": "3gp", "FLV": "flv"
         }
 
         self.setup_ui()
@@ -63,7 +62,7 @@ class VideoConverterApp(ctk.CTk):
 
         # Заголовок
         ctk.CTkLabel(self, text="Video Konvert", font=ctk.CTkFont(size=24, weight="bold")).grid(row=0, column=0,
-                                                                                                      pady=20)
+                                                                                                pady=20)
 
         # Выбор файла
         input_f = ctk.CTkFrame(self)
@@ -86,32 +85,26 @@ class VideoConverterApp(ctk.CTk):
                                                    variable=self.quality_var)
         self.quality_menu.grid(row=0, column=3, padx=10)
 
-        # Опции MPV (появляются при выборе MPV)
-        self.mpv_frame = ctk.CTkFrame(self, fg_color="#2b2b2b")
-        self.mpv_check = ctk.CTkCheckBox(self.mpv_frame, text="Создать MPV плейлист (авто-сборка)",
-                                         variable=self.create_mpv_playlist)
-        self.mpv_check.pack(pady=10)
-
         # Папка сохранения
         folder_f = ctk.CTkFrame(self)
-        folder_f.grid(row=4, column=0, padx=20, pady=10, sticky="ew")
+        folder_f.grid(row=3, column=0, padx=20, pady=10, sticky="ew")
         self.folder_label = ctk.CTkLabel(folder_f, text="Папка: Та же, что у оригинала", text_color="gray")
         self.folder_label.pack(side="left", padx=10, pady=10)
         ctk.CTkButton(folder_f, text="Папка", width=90, command=self.select_folder).pack(side="right", padx=10)
 
         # Лог
         self.log_text = ctk.CTkTextbox(self, font=("Consolas", 12))
-        self.log_text.grid(row=5, column=0, padx=20, pady=10, sticky="nsew")
+        self.log_text.grid(row=4, column=0, padx=20, pady=10, sticky="nsew")
 
         # Прогресс и Кнопка
         self.p_bar = ctk.CTkProgressBar(self, variable=self.progress_var)
-        self.p_bar.grid(row=6, column=0, padx=20, pady=10, sticky="ew")
+        self.p_bar.grid(row=5, column=0, padx=20, pady=10, sticky="ew")
         self.p_bar.set(0)
 
         self.start_btn = ctk.CTkButton(self, text="НАЧАТЬ КОНВЕРТАЦИЮ", height=60,
                                        font=ctk.CTkFont(size=18, weight="bold"),
                                        fg_color="#2eb872", hover_color="#1e8551", command=self.start_process)
-        self.start_btn.grid(row=7, column=0, padx=20, pady=(10, 20), sticky="ew")
+        self.start_btn.grid(row=6, column=0, padx=20, pady=(10, 20), sticky="ew")
 
     def log(self, msg):
         self.log_text.insert("end", f"[{datetime.datetime.now().strftime('%H:%M:%S')}] {msg}\n")
@@ -119,10 +112,6 @@ class VideoConverterApp(ctk.CTk):
         self.update()
 
     def on_format_change(self, _):
-        if self.format_var.get() == "MPV плейлист":
-            self.mpv_frame.grid(row=3, column=0, padx=20, pady=5, sticky="ew")
-        else:
-            self.mpv_frame.grid_forget()
         self.update_output_path()
 
     def select_input(self):
@@ -145,9 +134,6 @@ class VideoConverterApp(ctk.CTk):
         ext = self.format_extensions.get(self.format_var.get(), "mp4")
 
         name = f"{p.stem}_converted.{ext}"
-        if self.format_var.get() == "MPV плейлист" and self.create_mpv_playlist.get():
-            name = f"{p.stem}_playlist.mpv"
-
         self.output_path.set(str(d / name))
         self.log(f"Цель: {name}")
 
@@ -162,18 +148,30 @@ class VideoConverterApp(ctk.CTk):
             inp, outp = self.input_path.get(), self.output_path.get()
             fmt = self.format_var.get()
 
-            if fmt == "MPV плейлист":
-                self.convert_mpv(inp, outp)
+            self.log(f"Начало конвертации: {inp} -> {outp}")
+
+            if fmt == "GIF" and MOVIEPY_AVAILABLE:
+                self.convert_to_gif(inp, outp)
             elif MOVIEPY_AVAILABLE:
                 self.convert_moviepy(inp, outp)
             else:
                 self.convert_opencv(inp, outp)
 
-            self.progress_var.set(1.0)
-            self.log("✅ Успех!")
-            messagebox.showinfo("Готово", "Видео сохранено со звуком!")
+            # Проверяем, создался ли файл
+            if os.path.exists(outp):
+                file_size = os.path.getsize(outp)
+                self.log(f"✅ Файл создан: {outp} (размер: {file_size} байт)")
+                self.progress_var.set(1.0)
+                self.log("✅ Успех!")
+                messagebox.showinfo("Готово", f"Видео сохранено!\n{outp}")
+            else:
+                self.log("❌ Файл не был создан!")
+                messagebox.showerror("Ошибка", "Файл не был создан")
+
         except Exception as e:
-            self.log(f"❌ Ошибка: {e}")
+            self.log(f"❌ Ошибка: {str(e)}")
+            import traceback
+            traceback.print_exc()
         finally:
             self.start_btn.configure(state="normal")
 
@@ -185,40 +183,88 @@ class VideoConverterApp(ctk.CTk):
         br_map = {"max": "30000k", "high": "16000k", "medium": "8000k", "low": "3000k"}
         br = br_map.get(self.quality_var.get(), "8000k")
 
-        if outp.lower().endswith(".gif"):
-            clip.resize(width=640).write_gif(outp, fps=12, logger=None)
-        else:
-            clip.write_videofile(
-                outp,
-                bitrate=br,
-                codec="libx264",
-                audio=True,
-                audio_codec="aac",
-                temp_audiofile='temp-audio.m4a',
-                remove_temp=True,
-                preset="slow",
-                logger=None
-            )
+        clip.write_videofile(
+            outp,
+            bitrate=br,
+            codec="libx264",
+            audio=True,
+            audio_codec="aac",
+            temp_audiofile='temp-audio.m4a',
+            remove_temp=True,
+            preset="slow",
+            logger=None
+        )
         clip.close()
 
-    def convert_mpv(self, inp, outp):
-        self.log("Сборка MPV...")
-        temp_video = outp.replace('.mpv', '_temp.mp4')
-        self.convert_moviepy(inp, temp_video)
+    def convert_to_gif(self, inp, outp):
+        """Конвертирует видео в анимированный GIF"""
+        self.log("Создание анимированного GIF...")
 
-        if self.create_mpv_playlist.get():
-            files = [Path(temp_video)]
-            if messagebox.askyesno("MPV", "Добавить еще файлы в плейлист?"):
-                others = filedialog.askopenfilenames(title="Выберите доп. видео")
-                for f in others: files.append(Path(f))
+        # Настройки качества для GIF
+        quality_settings = {
+            "max": {"fps": 15, "scale": 1.0},  # максимальное качество - без сжатия
+            "high": {"fps": 12, "scale": 0.8},  # высокое качество
+            "medium": {"fps": 10, "scale": 0.6},  # среднее качество
+            "low": {"fps": 8, "scale": 0.4}  # низкое качество
+        }
 
-            with open(outp, 'w', encoding='utf-8') as f:
-                f.write("# MPV Playlist\n")
-                for i, path in enumerate(files, 1):
-                    f.write(f"#{i}. {path.name}\n{path.absolute()}\n\n")
-            self.log("Плейлист создан.")
+        settings = quality_settings.get(self.quality_var.get(), quality_settings["medium"])
+
+        self.log(f"Загрузка видео: {inp}")
+        clip = VideoFileClip(inp)
+        self.log(f"Видео загружено: {clip.duration} сек, {clip.w}x{clip.h}, {clip.fps} fps")
+
+        if settings["scale"] < 1.0:
+            new_w = int(clip.w * settings["scale"])
+            new_h = int(clip.h * settings["scale"])
+            self.log(f"Масштабирование до {new_w}x{new_h}")
+            # Поддержка и старых, и новый версий API MoviePy
+            try:
+                clip = clip.resized(new_w)
+                self.log("Использован метод resized()")
+            except AttributeError:
+                try:
+                    clip = clip.resize(new_w)
+                    self.log("Использован метод resize()")
+                except AttributeError:
+                    clip = clip.fx.resize(width=new_w)
+                    self.log("Использован fx.resize()")
+
+        self.log(f"Создание GIF с настройками: FPS={settings['fps']}")
+
+        # Создание GIF
+        try:
+            clip.write_gif(
+                outp,
+                fps=settings["fps"],
+                program='ffmpeg',
+                logger=None
+            )
+            self.log("GIF создан успешно")
+        except Exception as e:
+            self.log(f"Ошибка при создании GIF: {str(e)}")
+            # Пробуем без ffmpeg
+            try:
+                self.log("Пробуем без ffmpeg...")
+                clip.write_gif(
+                    outp,
+                    fps=settings["fps"],
+                    program='imageio',
+                    logger=None
+                )
+                self.log("GIF создан успешно (imageio)")
+            except Exception as e2:
+                self.log(f"Ошибка при создании GIF (imageio): {str(e2)}")
+                raise
+
+        clip.close()
+
+        # Проверка рез-а
+        if os.path.exists(outp):
+            file_size = os.path.getsize(outp) / (1024 * 1024)  # в MB
+            self.log(f"✅ GIF создан: {outp} (размер: {file_size:.2f} MB)")
         else:
-            shutil.move(temp_video, outp)
+            self.log("❌ GIF не был создан!")
 
     def convert_opencv(self, inp, outp):
         self.log("⚠️ MoviePy недоступен. OpenCV пишет БЕЗ ЗВУКА.")
