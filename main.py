@@ -29,7 +29,7 @@ except ImportError:
     OPENCV_AVAILABLE = False
 
 # Настройка темы
-ctk.set_appearance_mode("dark")
+ctk.set_appearance_mode("light")
 ctk.set_default_color_theme("blue")
 
 
@@ -49,9 +49,13 @@ class VideoConverterApp(ctk.CTk):
         self.progress_var = tk.DoubleVar(value=0)
 
         self.format_extensions = {
-            "MP4": "mp4", "AVI": "avi", "MOV": "mov",
-            "MKV": "mkv", "WebM": "webm", "GIF": "gif",
-            "3GP": "3gp", "FLV": "flv"
+            "MP4": "mp4",
+            "AVI": "avi",
+            "MOV": "mov",
+            "MKV": "mkv",
+            "WebM": "webm",
+            "3GP": "3gp",
+            "FLV": "flv"
         }
 
         self.setup_ui()
@@ -128,7 +132,8 @@ class VideoConverterApp(ctk.CTk):
             self.update_output_path()
 
     def update_output_path(self):
-        if not self.input_path.get(): return
+        if not self.input_path.get():
+            return
         p = Path(self.input_path.get())
         d = Path(getattr(self, 'custom_folder', p.parent))
         ext = self.format_extensions.get(self.format_var.get(), "mp4")
@@ -138,7 +143,8 @@ class VideoConverterApp(ctk.CTk):
         self.log(f"Цель: {name}")
 
     def start_process(self):
-        if not self.input_path.get(): return
+        if not self.input_path.get():
+            return
         self.start_btn.configure(state="disabled")
         threading.Thread(target=self.run_conversion, daemon=True).start()
 
@@ -146,13 +152,10 @@ class VideoConverterApp(ctk.CTk):
         try:
             self.progress_var.set(0.1)
             inp, outp = self.input_path.get(), self.output_path.get()
-            fmt = self.format_var.get()
 
             self.log(f"Начало конвертации: {inp} -> {outp}")
 
-            if fmt == "GIF" and MOVIEPY_AVAILABLE:
-                self.convert_to_gif(inp, outp)
-            elif MOVIEPY_AVAILABLE:
+            if MOVIEPY_AVAILABLE:
                 self.convert_moviepy(inp, outp)
             else:
                 self.convert_opencv(inp, outp)
@@ -196,76 +199,6 @@ class VideoConverterApp(ctk.CTk):
         )
         clip.close()
 
-    def convert_to_gif(self, inp, outp):
-        """Конвертирует видео в анимированный GIF"""
-        self.log("Создание анимированного GIF...")
-
-        # Настройки качества для GIF
-        quality_settings = {
-            "max": {"fps": 15, "scale": 1.0},  # максимальное качество - без сжатия
-            "high": {"fps": 12, "scale": 0.8},  # высокое качество
-            "medium": {"fps": 10, "scale": 0.6},  # среднее качество
-            "low": {"fps": 8, "scale": 0.4}  # низкое качество
-        }
-
-        settings = quality_settings.get(self.quality_var.get(), quality_settings["medium"])
-
-        self.log(f"Загрузка видео: {inp}")
-        clip = VideoFileClip(inp)
-        self.log(f"Видео загружено: {clip.duration} сек, {clip.w}x{clip.h}, {clip.fps} fps")
-
-        if settings["scale"] < 1.0:
-            new_w = int(clip.w * settings["scale"])
-            new_h = int(clip.h * settings["scale"])
-            self.log(f"Масштабирование до {new_w}x{new_h}")
-            # Поддержка и старых, и новый версий API MoviePy
-            try:
-                clip = clip.resized(new_w)
-                self.log("Использован метод resized()")
-            except AttributeError:
-                try:
-                    clip = clip.resize(new_w)
-                    self.log("Использован метод resize()")
-                except AttributeError:
-                    clip = clip.fx.resize(width=new_w)
-                    self.log("Использован fx.resize()")
-
-        self.log(f"Создание GIF с настройками: FPS={settings['fps']}")
-
-        # Создание GIF
-        try:
-            clip.write_gif(
-                outp,
-                fps=settings["fps"],
-                program='ffmpeg',
-                logger=None
-            )
-            self.log("GIF создан успешно")
-        except Exception as e:
-            self.log(f"Ошибка при создании GIF: {str(e)}")
-            # Пробуем без ffmpeg
-            try:
-                self.log("Пробуем без ffmpeg...")
-                clip.write_gif(
-                    outp,
-                    fps=settings["fps"],
-                    program='imageio',
-                    logger=None
-                )
-                self.log("GIF создан успешно (imageio)")
-            except Exception as e2:
-                self.log(f"Ошибка при создании GIF (imageio): {str(e2)}")
-                raise
-
-        clip.close()
-
-        # Проверка рез-а
-        if os.path.exists(outp):
-            file_size = os.path.getsize(outp) / (1024 * 1024)  # в MB
-            self.log(f"✅ GIF создан: {outp} (размер: {file_size:.2f} MB)")
-        else:
-            self.log("❌ GIF не был создан!")
-
     def convert_opencv(self, inp, outp):
         self.log("⚠️ MoviePy недоступен. OpenCV пишет БЕЗ ЗВУКА.")
         cap = cv2.VideoCapture(inp)
@@ -274,7 +207,8 @@ class VideoConverterApp(ctk.CTk):
         out = cv2.VideoWriter(outp, cv2.VideoWriter_fourcc(*'mp4v'), fps, (w, h))
         while True:
             ret, frame = cap.read()
-            if not ret: break
+            if not ret:
+                break
             out.write(frame)
         cap.release()
         out.release()
