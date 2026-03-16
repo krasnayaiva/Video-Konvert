@@ -38,4 +38,4 @@
 
 ## ⚙️ Установка
 
-Скачать Video-Konvert.exe и пользоваться!
+<a href="https://github.com/krasnayaiva/Video-Konvert/releases/tag/v1.1">Скачать Video-Konvert.exe и пользоваться!</a>
